@@ -1,0 +1,8 @@
+--index-url https://test.pypi.org/simple/
+--extra-index-url https://pypi.org/simple
+numpy
+matplotlib
+dxcam
+opencv-python
+tk
+playsound==1.2.2
