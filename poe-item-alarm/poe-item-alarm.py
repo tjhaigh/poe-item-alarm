@@ -24,7 +24,11 @@ class MainApplication(ttk.Frame):
         ttk.Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
         self.item_manager = ItemManager(item_file=os.path.join(resource_dir, "items", "items.json"))
-        self.image_processor = ImageProcessor(self.item_manager, resource_dir, 1.12)
+
+        target_height = 1610
+        curr_height = self.parent.winfo_screenheight()
+        
+        self.image_processor = ImageProcessor(self.item_manager, resource_dir, target_height/curr_height)
         
         self.columnconfigure(index=0,weight=1)
 
@@ -81,10 +85,11 @@ class MainApplication(ttk.Frame):
         print("recording stopped")
 
     def process_frame(self,frame):
-        res = self.image_processor.process_frame(frame,self.show_cv_cbutton.instate(['selected']))
+        res,matched = self.image_processor.process_frame(frame,self.show_cv_cbutton.instate(['selected']))
         if res is not None:
             frame = res
-            #playsound(self._alarm_file, block=False)
+            if matched:
+               playsound(self._alarm_file)
         self.curr_frame = frame
         self.parent.event_generate("<<frame-update>>")
 

@@ -3,6 +3,6 @@
 numpy
 matplotlib
 dxcam
-opencv-python
+opencv-python==4.5.5.64
 tk
 playsound==1.2.2

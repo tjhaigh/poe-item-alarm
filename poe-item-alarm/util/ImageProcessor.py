@@ -26,6 +26,7 @@ class ImageProcessor():
         else:
             final = scaled
 
+        matched = False
         for item in self.item_manager.enabled_items():
             template = item.template
             h,w = template.shape
@@ -36,9 +37,10 @@ class ImageProcessor():
             #print(max_val)
             if max_val > .5:       
                 cv2.rectangle(final, top_left, bottom_right, 255, 2)
+                matched = True
                 break
 
-        return final
+        return final, matched
 
     def make_template(self, image):
         template = cv2.imread(image, cv2.IMREAD_UNCHANGED)
