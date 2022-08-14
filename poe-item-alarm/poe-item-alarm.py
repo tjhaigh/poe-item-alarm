@@ -3,13 +3,11 @@ import os
 from playsound import playsound
 import tkinter as tk
 from tkinter import ttk
-import sv_ttk
 import dxcam
 import threading
-from imageprocessor import ImageProcessor
+from util.ImageProcessor import ImageProcessor
 from util.ItemManager import ItemManager
 from PIL import ImageTk,Image,ImageOps
-from concurrent.futures import ThreadPoolExecutor
 import timeit
 import cv2
 
@@ -25,8 +23,8 @@ class MainApplication(ttk.Frame):
     def __init__(self, parent, *args, **kwargs):
         ttk.Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
-        self.item_manager = ItemManager(item_file="util/items.json")
-        self.image_processor = ImageProcessor(self.item_manager, 1.12)
+        self.item_manager = ItemManager(item_file=os.path.join(resource_dir, "items", "items.json"))
+        self.image_processor = ImageProcessor(self.item_manager, resource_dir, 1.12)
         
         self.columnconfigure(index=0,weight=1)
 
@@ -181,7 +179,8 @@ if __name__ == "__main__":
     window = tk.Tk()
     window.title("PoE Item Alarm")
 
-    sv_ttk.set_theme("dark")
+    window.tk.call("source", os.path.join(resource_dir, "themes", "Sun-Valley-ttk-theme", "sun-valley.tcl"))
+    window.tk.call("set_theme", "dark")
 
     app = MainApplication(window)
     app.pack(fill="both", expand=True)

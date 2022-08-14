@@ -2,16 +2,15 @@ import cv2
 import numpy as np
 import os
 
-resource_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
-
 class ImageProcessor():
-    def __init__(self, item_manager, scale_factor=1):
+    def __init__(self, item_manager, resource_dir, scale_factor=1):
         self.item_manager = item_manager
         self.scale_factor = scale_factor
+        self.resource_dir = resource_dir
         self.templates = []
 
         for item in self.item_manager.get_items():
-            item.template = self.make_template(os.path.join(resource_dir, "images", "items", item.image))
+            item.template = self.make_template(os.path.join(self.resource_dir, "images", "items", item.image))
 
     
     
