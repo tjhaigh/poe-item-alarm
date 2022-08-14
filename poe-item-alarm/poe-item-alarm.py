@@ -1,6 +1,5 @@
-from difflib import IS_CHARACTER_JUNK
+
 import os
-from sqlite3 import TimestampFromTicks
 from playsound import playsound
 import tkinter as tk
 from tkinter import ttk
@@ -8,7 +7,10 @@ import sv_ttk
 import dxcam
 import threading
 from imageprocessor import ImageProcessor
-from PIL import ImageTk,Image
+from util.ItemManager import ItemManager
+from PIL import ImageTk,Image,ImageOps
+from concurrent.futures import ThreadPoolExecutor
+import timeit
 import cv2
 
 scale_factor = 1.12
@@ -18,95 +20,161 @@ resource_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resourc
 class MainApplication(ttk.Frame):
     _alarm_file = os.path.join(resource_dir, "sounds", "Alarm.wav")
     _camera = dxcam.create()
+    region = None
 
     def __init__(self, parent, *args, **kwargs):
         ttk.Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
-        self.image_processor = ImageProcessor([os.path.join(resource_dir, "images", "items", "mageblood.png")], 1.12)
+        self.item_manager = ItemManager(item_file="util/items.json")
+        self.image_processor = ImageProcessor(self.item_manager, 1.12)
         
-        for index in (0, 1, 2):
-            self.columnconfigure(index=index, weight=1)
-            self.rowconfigure(index=index, weight=1)
+        self.columnconfigure(index=0,weight=1)
 
         self.setup_widgets()
 
     def setup_widgets(self):
-        top_bar = ttk.Frame(self.parent)
-        top_bar.pack(side=tk.TOP, fill=tk.X)
+        # Capture Preview Frame
+        self.preview_frame = ttk.LabelFrame(self, text="Capture Preview", padding=(20,10))
+        self.preview_frame.grid(row=0, column=0, padx=(20,10), pady=(20,10), sticky="nsew")
+        self.preview_frame.columnconfigure(index=0,weight=1)
+        self.preview_frame.rowconfigure(index=1,weight=1)
 
-        button_bar = ttk.Frame(top_bar)
-        button_bar.pack(side=tk.TOP,fill=tk.X)
-        sound_test_button = ttk.Button(button_bar,text="test sound",command=lambda: playsound(self._alarm_file, block=False))
-        sound_test_button.grid(row=0,column=0,padx=2,pady=2)
+        self.filler1 = ttk.Label(self.preview_frame)
+        self.filler1.grid(row=0,column=0,sticky="ew")
 
-        self.capture_button = ttk.Button(button_bar,text="start capture",command=lambda: self.start_capture() )
-        self.capture_button.grid(row=0,column=1,padx=2,pady=2)
+        self.select_area_button = ttk.Button(self.preview_frame,text="Select Capture Area",command=lambda: self.area_select())
+        self.select_area_button.grid(row=0, column=1,padx=5,pady=5,sticky="ew")
 
-        self.show_cv_cbutton = ttk.Checkbutton(button_bar,text="Show Processed Frames")
-        self.show_cv_cbutton.grid(row=0,column=2,padx=2,pady=2)
+        self.capture_button = ttk.Button(self.preview_frame,text="Start Capture",command=lambda: self.start_capture() )
+        self.capture_button.grid(row=0,column=2,padx=5,pady=5,sticky="ew")
 
-        self.preview_frame = ttk.Frame(self.parent, height=200, width=200)
-        self.preview_frame.pack(fill=tk.BOTH, expand=True)
+        self.show_cv_cbutton = ttk.Checkbutton(self.preview_frame,text="Show Processed Frames")
+        self.show_cv_cbutton.grid(row=0,column=3,padx=5,pady=5,sticky="ew")
+        self.show_cv_cbutton.state(["!alternate"])
+
         self.image_preview = ttk.Label(self.preview_frame)
-        self.image_preview.pack()
+        self.image_preview.grid(row=1,column=0,columnspan=4,padx=5,pady=5, sticky="nsew")
         self.parent.bind("<<frame-update>>", self.update_preview)
+        self.curr_frame = None
+
+        # Item list frame
+        self.item_frame = ttk.LabelFrame(self, text="Items", padding=(20,10))
+        self.item_frame.grid(row=0,column=1,rowspan=2,padx=(20,10),pady=(20,10),sticky="nsew")
+
+        # self.scrollbar = ttk.Scrollbar(self.item_frame)
+        # self.scrollbar.grid(row=)
+
+        self.item_checkboxes = dict()
+        for x,item in enumerate(self.item_manager.get_items()):
+            self.item_checkboxes[item] = tk.IntVar()
+            self.item_checkboxes[item].set(item.enabled)
+            cb = ttk.Checkbutton(self.item_frame,text=item.name,variable=self.item_checkboxes[item],command=lambda key=item: self.item_clicked(key))
+            cb.grid(row=x,column=0,sticky="ew")
+        
 
     def stream_frames(self):
         while self._camera.is_capturing:
             frame = self._camera.get_latest_frame()
-            res = self.image_processor.process_frame(frame,self.show_cv_cbutton.instate(['selected']))
-            if res is not None:
-                frame = res
-                #playsound(self._alarm_file, block=False)
-            frame = Image.fromarray(frame)
-            w = self.preview_frame.winfo_width()-5    # subtract a few pixels to ensure it doesn't grow every frame
-            h = self.preview_frame.winfo_height()-5
-            frame.thumbnail((w,h), Image.LANCZOS)
-            self.curr_frame = ImageTk.PhotoImage(frame)
-            self.parent.event_generate("<<frame-update>>")
-        
-        print("recording stopped")
+            start = timeit.default_timer()
+            self.process_frame(frame)
+            end = timeit.default_timer()
+            print("Frame took " + str(end-start) + " seconds")
             
-    def update_preview(self, frame):
-        self.image_preview.configure(image=self.curr_frame)
-        self.image_preview.image = self.curr_frame
+        print("recording stopped")
+
+    def process_frame(self,frame):
+        res = self.image_processor.process_frame(frame,self.show_cv_cbutton.instate(['selected']))
+        if res is not None:
+            frame = res
+            #playsound(self._alarm_file, block=False)
+        self.curr_frame = frame
+        self.parent.event_generate("<<frame-update>>")
+
+            
+    def update_preview(self,event):
+        frame = Image.fromarray(self.curr_frame)
+        w = max(100,self.image_preview.winfo_width()-5)
+        h = max(100,self.image_preview.winfo_height()-5)
+        frame = ImageOps.contain(frame, (w,h))
+        frame = ImageTk.PhotoImage(frame)
+        self.image_preview.configure(image=frame)
+        self.image_preview.image = frame
+
+    # for future me:
+    # this might be confusing, but we keep a dict of items and their respective checkbox vars
+    # since objs are references, we just update the value of it here and it propagates through the rest of the app
+    # call save items here to make sure changes are saved
+    def item_clicked(self, item):
+        v = self.item_checkboxes.get(item)
+        item.enabled = bool(v.get())
+        self.item_manager.save_items()
+
 
     def start_capture(self):
         if not self._camera.is_capturing:
-            self._camera.start()
-            self.capture_button.configure(text="stop capture")
+            self._camera.start(target_fps=30,region=self.region)
+            self.capture_button.configure(text="Stop Capture")
             t = threading.Thread(target=self.stream_frames)
             t.daemon = True
             t.start()
         else:
             self._camera.stop()
-            self.capture_button.configure(text="start capture")
+            self.capture_button.configure(text="Start Capture")
 
-    def check_image(self, image, reference):
-        template = cv2.imread(reference, cv2.IMREAD_UNCHANGED)
-        template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
-        template_gray = cv2.GaussianBlur(template_gray, (3,3), 0)
-        template_canny = cv2.Canny(template_gray, 100, 200)
+    def area_select(self):
+        screenshot = self._camera.grab()
+        screenshot = cv2.cvtColor(screenshot, cv2.COLOR_RGB2GRAY)
+        screenshot = Image.fromarray(screenshot)
+        screenshot = ImageTk.PhotoImage(screenshot)
+        area_frame = AreaSelection(self, screenshot)
+        area_frame.wm_attributes('-fullscreen', 'True')
+
+
+    def set_capture_area(self, left, top, right, bottom):
+        self.region = (left,top,right,bottom)
+        self.curr_frame = self._camera.grab(region=self.region)
+        self.parent.event_generate("<<frame-update>>")
+
+
+class AreaSelection(tk.Toplevel):
+    def __init__(self, parent, screenshot, *args, **kwargs):
+        tk.Toplevel.__init__(self, parent, *args, **kwargs)
+        self.parent = parent
+        self.bg = tk.Canvas(self, width=self.winfo_screenwidth(), height=self.winfo_screenheight(), cursor="cross")
+        self.bg.pack()
+        self.bg.create_image((0,0),anchor=tk.NW,image=screenshot)
+        self.screenshot = screenshot
+
+        self.bind("<Escape>", self.close)
+
+        self.bind("<ButtonPress-1>", self.click)
+        self.bind("<B1-Motion>", self.drag)
+        self.bind("<ButtonRelease-1>", self.release)
+
+    def close(self, event):
+        self.destroy()
+
+    def click(self, event):
+        self.start_x = event.x
+        self.start_y = event.y
+        self.rect = self.bg.create_rectangle(event.x,event.y,1,1,outline='red')
+
+    def drag(self, event):
+        self.end_x = event.x
+        self.end_y = event.y
+        self.bg.coords(self.rect, self.start_x, self.start_y, event.x, event.y)
+
+    def release(self, event):
+        self.end_x = event.x 
+        self.end_y = event.y
+        # we calc min and max so that the box doesn't have to always be top left -> bottom right
+        top = min(self.start_y, self.end_y)
+        left = min(self.start_x, self.end_x)
+        bottom = max(self.start_y, self.end_y)
+        right = max(self.start_x, self.end_x)
         
-        h,w = template_gray.shape
-
-        scaled = cv2.resize(image, None, fx=scale_factor,fy=scale_factor,interpolation=cv2.INTER_LINEAR)
-        gray = cv2.cvtColor(scaled, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (3,3), 0)
-        scaled_canny = cv2.Canny(blurred, 100, 200)
-
-        res = cv2.matchTemplate(scaled_canny, template_canny, cv2.TM_CCORR_NORMED)
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-        top_left = max_loc
-        bottom_right = (top_left[0] + w, top_left[1] + h)
-        print(max_val, reference)
-        
-        if max_val > .5:       
-            cv2.rectangle(scaled_canny, top_left, bottom_right, 255, 2)
-            return scaled_canny
-        else:
-            return None
-
+        self.parent.set_capture_area(left+1, top+1, right, bottom)
+        self.destroy()
     
 
 if __name__ == "__main__":
