@@ -102,12 +102,15 @@ class MainApplication(ttk.Frame):
             start = timeit.default_timer()
             self.process_frame(frame)
             end = timeit.default_timer()
-            print("Frame took " + str(end-start) + " seconds")
+            #print("Frame took " + str(end-start) + " seconds")
             
         print("recording stopped")
 
     def process_frame(self,frame):
-        res,matched = self.image_processor.process_frame(frame,self.config_manager.get_threshold(),self.show_cv_cbutton.instate(['selected']))
+        if self.config_manager.get_threaded():
+            res,matched = self.image_processor.process_frame_threaded(frame,self.config_manager.get_threshold(),self.show_cv_cbutton.instate(['selected']))
+        else:
+            res,matched = self.image_processor.process_frame(frame,self.config_manager.get_threshold(),self.show_cv_cbutton.instate(['selected']))
         if res is not None:
             frame = res
             if matched:

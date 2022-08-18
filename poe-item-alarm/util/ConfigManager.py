@@ -20,6 +20,9 @@ class ConfigManager:
     def get_block_size(self):
         return self.config.getfloat('App', 'blockSize', fallback=78)
 
+    def get_threaded(self):
+        return self.config.getboolean('App', 'threaded', fallback=False)
+
     def set_block_size(self, block_size):
         if not self.config.has_section('App'):
             self.config.add_section('App')
