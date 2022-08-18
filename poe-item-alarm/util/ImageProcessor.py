@@ -14,17 +14,17 @@ class ImageProcessor():
 
     
     
-    def process_frame(self,frame,return_processed=False):
+    def process_frame(self,frame,threshold,return_processed=False):
 
-        scaled = cv2.resize(frame, None, fx=self.scale_factor,fy=self.scale_factor,interpolation=cv2.INTER_LINEAR)
-        gray = cv2.cvtColor(scaled, cv2.COLOR_BGR2GRAY)
+        #scaled = cv2.resize(frame, None, fx=self.scale_factor,fy=self.scale_factor,interpolation=cv2.INTER_LINEAR)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         blurred = cv2.GaussianBlur(gray, (3,3), 0)
         scaled_canny = self.auto_canny(blurred)
 
         if return_processed:
-                final = scaled_canny
+            final = scaled_canny
         else:
-            final = scaled
+            final = frame
 
         matched = False
         for item in self.item_manager.enabled_items():
@@ -34,8 +34,8 @@ class ImageProcessor():
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
             top_left = max_loc
             bottom_right = (top_left[0] + w, top_left[1] + h)        
-            #print(max_val)
-            if max_val > .5:       
+
+            if max_val > threshold:       
                 cv2.rectangle(final, top_left, bottom_right, 255, 2)
                 matched = True
                 break
@@ -44,7 +44,8 @@ class ImageProcessor():
 
     def make_template(self, image):
         template = cv2.imread(image, cv2.IMREAD_UNCHANGED)
-        template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+        scaled_template = cv2.resize(template, None, fx=self.scale_factor,fy=self.scale_factor,interpolation=cv2.INTER_LINEAR)
+        template_gray = cv2.cvtColor(scaled_template, cv2.COLOR_BGR2GRAY)
         template_gray = cv2.GaussianBlur(template_gray, (3,3), 0)
         template_canny = self.auto_canny(template_gray)
         
@@ -55,6 +56,6 @@ class ImageProcessor():
         lower = int(max(0, (1.0 - sigma) * v))
         upper = int(min(255, (1.0 + sigma) * v))
 
-        canny = cv2.Canny(image, lower, upper)
+        canny = cv2.Canny(image, 50, 150)
 
         return canny

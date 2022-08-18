@@ -1,4 +1,4 @@
-
+import sys
 import os
 from playsound import playsound
 import tkinter as tk
@@ -7,6 +7,7 @@ import dxcam
 import threading
 from util.ImageProcessor import ImageProcessor
 from util.ItemManager import ItemManager
+from util.ConfigManager import ConfigManager
 from PIL import ImageTk,Image,ImageOps
 import timeit
 import cv2
@@ -23,14 +24,23 @@ class MainApplication(ttk.Frame):
     def __init__(self, parent, *args, **kwargs):
         ttk.Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
+
+        if getattr(sys, 'frozen', False):
+            self.app_path = sys._MEIPASS
+        else:
+            self.app_path = os.path.dirname(os.path.abspath(__file__))
+
         self.item_manager = ItemManager(item_file=os.path.join(resource_dir, "items", "items.json"))
 
-        target_height = 1610
-        curr_height = self.parent.winfo_screenheight()
+        self.config_manager = ConfigManager(self.app_path, "config.ini")
+
+        block_size = self.config_manager.get_block_size()
+        scale = block_size / 78
         
-        self.image_processor = ImageProcessor(self.item_manager, resource_dir, target_height/curr_height)
+        self.image_processor = ImageProcessor(self.item_manager, resource_dir, scale)
         
         self.columnconfigure(index=0,weight=1)
+        self.rowconfigure(index=0,weight=1)
 
         self.setup_widgets()
 
@@ -44,7 +54,7 @@ class MainApplication(ttk.Frame):
         self.filler1 = ttk.Label(self.preview_frame)
         self.filler1.grid(row=0,column=0,sticky="ew")
 
-        self.select_area_button = ttk.Button(self.preview_frame,text="Select Capture Area",command=lambda: self.area_select())
+        self.select_area_button = ttk.Button(self.preview_frame,text="Select Capture Area",command=lambda: self.select_capture_area())
         self.select_area_button.grid(row=0, column=1,padx=5,pady=5,sticky="ew")
 
         self.capture_button = ttk.Button(self.preview_frame,text="Start Capture",command=lambda: self.start_capture() )
@@ -66,12 +76,24 @@ class MainApplication(ttk.Frame):
         # self.scrollbar = ttk.Scrollbar(self.item_frame)
         # self.scrollbar.grid(row=)
 
+
         self.item_checkboxes = dict()
         for x,item in enumerate(self.item_manager.get_items()):
             self.item_checkboxes[item] = tk.IntVar()
             self.item_checkboxes[item].set(item.enabled)
             cb = ttk.Checkbutton(self.item_frame,text=item.name,variable=self.item_checkboxes[item],command=lambda key=item: self.item_clicked(key))
             cb.grid(row=x,column=0,sticky="ew")
+
+        # Settings
+        self.settings_frame = ttk.LabelFrame(self, text="Settings", padding=(20,10))
+        self.settings_frame.grid(row=1,column=0,rowspan=1,padx=(20,10),pady=(20,10),sticky="nsew")
+        self.settings_frame.columnconfigure(index=0,weight=1)
+
+        # self.threshold_slider = ttk.LabeledScale(self.settings_frame, from_=0, to=100)
+        # self.threshold_slider.grid(row=0,column=0,columnspan=3,padx=(20,10),pady=(20,10),sticky="ew")
+
+        self.calibrate_button = ttk.Button(self.settings_frame, text="Calibrate Scale",command=lambda: self.calibrate_scale())
+        self.calibrate_button.grid(row=1,column=0,padx=(20,10),pady=(20,10),sticky="ew")
         
 
     def stream_frames(self):
@@ -80,12 +102,12 @@ class MainApplication(ttk.Frame):
             start = timeit.default_timer()
             self.process_frame(frame)
             end = timeit.default_timer()
-            print("Frame took " + str(end-start) + " seconds")
+            #print("Frame took " + str(end-start) + " seconds")
             
         print("recording stopped")
 
     def process_frame(self,frame):
-        res,matched = self.image_processor.process_frame(frame,self.show_cv_cbutton.instate(['selected']))
+        res,matched = self.image_processor.process_frame(frame,self.config_manager.get_threshold(),self.show_cv_cbutton.instate(['selected']))
         if res is not None:
             frame = res
             if matched:
@@ -124,29 +146,44 @@ class MainApplication(ttk.Frame):
             self._camera.stop()
             self.capture_button.configure(text="Start Capture")
 
-    def area_select(self):
+    def select_capture_area(self):
         screenshot = self._camera.grab()
         screenshot = cv2.cvtColor(screenshot, cv2.COLOR_RGB2GRAY)
         screenshot = Image.fromarray(screenshot)
         screenshot = ImageTk.PhotoImage(screenshot)
-        area_frame = AreaSelection(self, screenshot)
+        area_frame = AreaSelection(self, screenshot,self.set_capture_area)
         area_frame.wm_attributes('-fullscreen', 'True')
 
+    def calibrate_scale(self):
+        screenshot = self._camera.grab()
+        screenshot = cv2.cvtColor(screenshot, cv2.COLOR_RGB2GRAY)
+        screenshot = Image.fromarray(screenshot)
+        screenshot = ImageTk.PhotoImage(screenshot)
+        area_frame = AreaSelection(self, screenshot,self.set_block_size)
+        area_frame.wm_attributes('-fullscreen', 'True')
 
     def set_capture_area(self, left, top, right, bottom):
         self.region = (left,top,right,bottom)
         self.curr_frame = self._camera.grab(region=self.region)
         self.parent.event_generate("<<frame-update>>")
 
+    def set_block_size(self, left, top, right, bottom):
+        w = abs(right - left)
+        h = abs(top - bottom)
+        block_size = (w+h)/2
+        self.config_manager.set_block_size(block_size)
 
+
+# Expects parent frame, screenshot of current screen, and function callback to send the vals to
 class AreaSelection(tk.Toplevel):
-    def __init__(self, parent, screenshot, *args, **kwargs):
+    def __init__(self, parent, screenshot, callback, *args, **kwargs):
         tk.Toplevel.__init__(self, parent, *args, **kwargs)
         self.parent = parent
         self.bg = tk.Canvas(self, width=self.winfo_screenwidth(), height=self.winfo_screenheight(), cursor="cross")
         self.bg.pack()
         self.bg.create_image((0,0),anchor=tk.NW,image=screenshot)
         self.screenshot = screenshot
+        self.callback = callback
 
         self.bind("<Escape>", self.close)
 
@@ -176,7 +213,8 @@ class AreaSelection(tk.Toplevel):
         bottom = max(self.start_y, self.end_y)
         right = max(self.start_x, self.end_x)
         
-        self.parent.set_capture_area(left+1, top+1, right, bottom)
+        self.callback(left+1, top+1, right, bottom)
+        #self.parent.set_capture_area(left+1, top+1, right, bottom)
         self.destroy()
     
 
