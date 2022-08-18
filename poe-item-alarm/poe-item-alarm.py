@@ -12,9 +12,14 @@ from PIL import ImageTk,Image,ImageOps
 import timeit
 import cv2
 
-scale_factor = 1.12
 
-resource_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
+
+if getattr(sys, 'frozen', False):
+    app_path = os.path.dirname(sys.executable)
+else:
+    app_path = os.path.dirname(os.path.abspath(__file__))
+
+resource_dir = os.path.join(app_path, "resources")
 
 class MainApplication(ttk.Frame):
     _alarm_file = os.path.join(resource_dir, "sounds", "Alarm.wav")
@@ -23,16 +28,11 @@ class MainApplication(ttk.Frame):
 
     def __init__(self, parent, *args, **kwargs):
         ttk.Frame.__init__(self, parent, *args, **kwargs)
-        self.parent = parent
-
-        if getattr(sys, 'frozen', False):
-            self.app_path = sys._MEIPASS
-        else:
-            self.app_path = os.path.dirname(os.path.abspath(__file__))
+        self.parent = parent      
 
         self.item_manager = ItemManager(item_file=os.path.join(resource_dir, "items", "items.json"))
 
-        self.config_manager = ConfigManager(self.app_path, "config.ini")
+        self.config_manager = ConfigManager(app_path, "config.ini")
 
         block_size = self.config_manager.get_block_size()
         scale = block_size / 78
