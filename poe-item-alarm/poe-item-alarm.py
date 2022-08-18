@@ -102,7 +102,7 @@ class MainApplication(ttk.Frame):
             start = timeit.default_timer()
             self.process_frame(frame)
             end = timeit.default_timer()
-            #print("Frame took " + str(end-start) + " seconds")
+            print("Frame took " + str(end-start) + " seconds")
             
         print("recording stopped")
 
