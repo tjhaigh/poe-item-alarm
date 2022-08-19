@@ -1,8 +1,9 @@
 import sys
 import os
+import shutil
 from playsound import playsound
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 import dxcam
 import threading
 from util.ImageProcessor import ImageProcessor
@@ -75,14 +76,19 @@ class MainApplication(ttk.Frame):
 
         # self.scrollbar = ttk.Scrollbar(self.item_frame)
         # self.scrollbar.grid(row=)
+        self.select_all_button = ttk.Button(self.item_frame,text="Select All",command=lambda: self.select_all_items())
+        self.select_all_button.grid(row=0,column=0,padx=5,pady=5,sticky="ew")
 
+        self.deselect_all_button = ttk.Button(self.item_frame,text="Deselect All",command=lambda: self.deselect_all_items())
+        self.deselect_all_button.grid(row=0,column=1,padx=5,pady=5,sticky="ew")
 
         self.item_checkboxes = dict()
         for x,item in enumerate(self.item_manager.get_items()):
+            x+=2 # need space for buttons and shit at top
             self.item_checkboxes[item] = tk.IntVar()
             self.item_checkboxes[item].set(item.enabled)
             cb = ttk.Checkbutton(self.item_frame,text=item.name,variable=self.item_checkboxes[item],command=lambda key=item: self.item_clicked(key))
-            cb.grid(row=x,column=0,sticky="ew")
+            cb.grid(row=x,column=0,columnspan=3,sticky="ew")
 
         # Settings
         self.settings_frame = ttk.LabelFrame(self, text="Settings", padding=(20,10))
@@ -93,7 +99,14 @@ class MainApplication(ttk.Frame):
         # self.threshold_slider.grid(row=0,column=0,columnspan=3,padx=(20,10),pady=(20,10),sticky="ew")
 
         self.calibrate_button = ttk.Button(self.settings_frame, text="Calibrate Scale",command=lambda: self.calibrate_scale())
-        self.calibrate_button.grid(row=1,column=0,padx=(20,10),pady=(20,10),sticky="ew")
+        self.calibrate_button.grid(row=1,column=0,columnspan=2,padx=5,pady=5,sticky="ew")
+
+        self.new_item_name = ttk.Entry(self.settings_frame)
+        self.new_item_name.grid(row=2,column=0,padx=5,pady=5,sticky="ew")
+
+        self.add_item_button = ttk.Button(self.settings_frame, text="Add New Item", command=lambda: self.add_new_item())
+        self.add_item_button.grid(row=2,column=1,padx=5,pady=5,sticky="ew")
+
         
 
     def stream_frames(self):
@@ -175,6 +188,34 @@ class MainApplication(ttk.Frame):
         h = abs(top - bottom)
         block_size = (w+h)/2
         self.config_manager.set_block_size(block_size)
+
+    def add_new_item(self):
+        f_types = [("PNG", "*.png")]
+        filename = filedialog.askopenfilename(filetypes=f_types)
+
+        item_name = self.new_item_name.get()
+        
+        if item_name == "":
+            return
+
+        item_file_name = item_name.lower().replace(" ", "_") + ".png"
+        item_dir = os.path.join(resource_dir, "images", "items", item_file_name)
+        shutil.copy(filename, item_dir)
+        self.item_manager.add_item(item_name, item_file_name)
+        self.item_manager.save_items()
+        self.new_item_name.delete(0, tk.END)
+    
+    def select_all_items(self):
+        for item,var in self.item_checkboxes.items():
+            var.set(True)
+            item.enabled = True
+        self.item_manager.save_items()
+
+    def deselect_all_items(self):
+        for item,var in self.item_checkboxes.items():
+            var.set(False)
+            item.enabled = False
+        self.item_manager.save_items()
 
 
 # Expects parent frame, screenshot of current screen, and function callback to send the vals to

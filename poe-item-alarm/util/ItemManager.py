@@ -23,10 +23,8 @@ class ItemManager:
                     self.items.append(Item(key, val['image'],val['enabled']))
         
     def add_item(self, item_name, item_image, enabled=False):
-        if item_name not in self.items_raw.keys():
-            self.items_raw[item_name] = {}
-            self.items_raw[item_name]['image'] = item_image
-            self.items_raw[item_name]['enabled'] = enabled
+        self.items.append(Item(item_name,item_image,enabled))
+        
 
     def get_items(self):
         return self.items
@@ -46,7 +44,7 @@ class ItemManager:
             output[item.name]['image'] = item.image
             output[item.name]['enabled'] = item.enabled
         with open(self.item_file, 'w') as f:
-            json.dump(output, f)
+            json.dump(output, f, sort_keys=True, indent=4)
 
 
 
