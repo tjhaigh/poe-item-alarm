@@ -1,11 +1,15 @@
 {
-    "Arakaali's Fang": {
+    "Apparitions": {
         "enabled": true,
-        "image": "arakaali's_fang.png"
+        "image": "apparitions.png"
     },
     "Astramentis": {
         "enabled": true,
         "image": "astramentis.png"
+    },
+    "Atziri's Foible": {
+        "enabled": true,
+        "image": "atziri's_foible.png"
     },
     "Badge of the Brotherhood": {
         "enabled": true,
@@ -31,6 +35,10 @@
         "enabled": true,
         "image": "dyadin_dawn.png"
     },
+    "Energy From Within": {
+        "enabled": true,
+        "image": "energy_from_within.png"
+    },
     "Fortress Covenant": {
         "enabled": true,
         "image": "fortress_covenant.png"
@@ -38,6 +46,10 @@
     "Headhunter": {
         "enabled": true,
         "image": "headhunter.png"
+    },
+    "Healthy Mind": {
+        "enabled": true,
+        "image": "healthy_mind.png"
     },
     "Inspired Learning": {
         "enabled": true,
@@ -55,6 +67,10 @@
         "enabled": true,
         "image": "mageblood.png"
     },
+    "Mantra of Flames": {
+        "enabled": true,
+        "image": "mantra_of_flames.png"
+    },
     "Primordial Might": {
         "enabled": true,
         "image": "primordial_might.png"
@@ -67,6 +83,10 @@
         "enabled": true,
         "image": "ryslatha's_coil.png"
     },
+    "Shavronne's Revelation": {
+        "enabled": true,
+        "image": "shavronne's_revelation.png"
+    },
     "Stranglegasp": {
         "enabled": true,
         "image": "stranglegasp.png"
@@ -75,9 +95,17 @@
         "enabled": true,
         "image": "the_halcyon.png"
     },
+    "The Magnate": {
+        "enabled": true,
+        "image": "the_magnate.png"
+    },
     "To Dust": {
         "enabled": true,
         "image": "to_dust.png"
+    },
+    "Ungil's Harmony": {
+        "enabled": true,
+        "image": "ungil's_harmony.png"
     },
     "Unnatural Instinct": {
         "enabled": true,
@@ -90,5 +118,9 @@
     "Xoph's Blood": {
         "enabled": true,
         "image": "xoph's_blood.png"
+    },
+    "Yoke of Suffering": {
+        "enabled": true,
+        "image": "yoke_of_suffering.png"
     }
 }
